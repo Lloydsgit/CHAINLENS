@@ -175,7 +175,12 @@ async def _analyze_eth(
         identity["type"] = "externally-owned account (EOA)"
 
     # --- balances ---
-    native_balance = core.get("balance_native") or 0.0
+    native_balance = _known_balance(core)
+    if native_balance is None:
+        errors.append(
+            "Balance could not be read: no EVM RPC endpoint answered. The wallet's "
+            "holdings are unknown for this run, not zero."
+        )
     tokens_raw = []
     if bs_tokens:
         # Blockscout returns every ERC-20 balance with logos and its own price
@@ -239,7 +244,7 @@ async def _analyze_eth(
         for t in tail
     )
 
-    native_usd = (native_balance * eth_usd) if eth_usd else None
+    native_usd = (native_balance * eth_usd) if (native_balance is not None and eth_usd) else None
     token_total_usd = sum(t.get("value_usd") or 0 for t in tokens) + tail_value
     total_usd = (native_usd or 0) + token_total_usd
 
@@ -535,7 +540,12 @@ async def _analyze_esplora(chain: str, address: str, target: detect.Target) -> d
     native_price = await _safe(prices.native_prices([chain]), default={})
     price_usd = (native_price.get(chain) or {}).get("usd")
 
-    balance_native = info.get("balance_native") or 0.0
+    balance_native = _known_balance(info)
+    if balance_native is None:
+        errors.append(
+            f"Balance could not be read from the {chain} explorer. Holdings are unknown "
+            "for this run, not zero."
+        )
     identity = {"chain": chain, "address": address, "type": "address"}
 
     report["balances"] = {
@@ -543,15 +553,15 @@ async def _analyze_esplora(chain: str, address: str, target: detect.Target) -> d
             "symbol": chain,
             "amount": balance_native,
             "price_usd": price_usd,
-            "value_usd": (balance_native * price_usd) if price_usd else None,
+            "value_usd": (balance_native * price_usd) if (balance_native is not None and price_usd) else None,
         },
         "unconfirmed": info.get("unconfirmed_native"),
         "tokens": [],
         "token_count": 0,
     }
     report["portfolio"] = {
-        "total_value_usd": (balance_native * price_usd) if price_usd else None,
-        "native_value_usd": (balance_native * price_usd) if price_usd else None,
+        "total_value_usd": (balance_native * price_usd) if (balance_native is not None and price_usd) else None,
+        "native_value_usd": (balance_native * price_usd) if (balance_native is not None and price_usd) else None,
         "token_value_usd": 0,
         "price_source": _price_source(native_price),
     }
@@ -648,18 +658,23 @@ async def _analyze_doge(address: str, target: detect.Target) -> dict:
     )
     native_price = await _safe(prices.native_prices(["DOGE"]), default={})
     price_usd = (native_price.get("DOGE") or {}).get("usd")
-    bal = balance.get("balance_native") or 0.0
+    bal = _known_balance(balance)
+    errors: list[str] = []
+    if bal is None:
+        errors.append(
+            "Balance could not be read from Dogechain. Holdings are unknown for this run, not zero."
+        )
 
     report["balances"] = {
         "native": {"symbol": "DOGE", "amount": bal, "price_usd": price_usd,
-                   "value_usd": (bal * price_usd) if price_usd else None},
+                   "value_usd": (bal * price_usd) if (bal is not None and price_usd) else None},
         "unconfirmed": balance.get("unconfirmed_native"),
         "tokens": [],
         "token_count": 0,
     }
     report["portfolio"] = {
-        "total_value_usd": (bal * price_usd) if price_usd else None,
-        "native_value_usd": (bal * price_usd) if price_usd else None,
+        "total_value_usd": (bal * price_usd) if (bal is not None and price_usd) else None,
+        "native_value_usd": (bal * price_usd) if (bal is not None and price_usd) else None,
         "token_value_usd": 0,
         "price_source": _price_source(native_price),
     }
@@ -693,7 +708,7 @@ async def _analyze_doge(address: str, target: detect.Target) -> dict:
     report["identity"] = {"chain": "DOGE", "address": address, "type": "address"}
     report["risk"] = _score_risk(goplus_flags=[], ofac=ofac, is_contract=False, is_new=(len(txs) < 3))
     report["providers"] = ["Dogechain.info", "CoinGecko", "OFAC SDN"]
-    report["errors"] = []
+    report["errors"] = errors
     report["summary"] = _summary(report)
     return report
 
@@ -710,7 +725,12 @@ async def _analyze_tron(address: str, target: detect.Target) -> dict:
     )
     native_price = await _safe(prices.native_prices(["TRX"]), default={})
     price_usd = (native_price.get("TRX") or {}).get("usd")
-    bal = account.get("balance_native") or 0.0
+    bal = _known_balance(account)
+    errors: list[str] = []
+    if bal is None:
+        errors.append(
+            "Balance could not be read from TronGrid. Holdings are unknown for this run, not zero."
+        )
 
     # TRC-20 token aggregation (Transfers only; Approvals carry no balance change)
     tokens: dict[str, dict] = {}
@@ -748,7 +768,7 @@ async def _analyze_tron(address: str, target: detect.Target) -> dict:
             token_total += usd
     token_list.sort(key=lambda t: t.get("value_usd") or 0, reverse=True)
 
-    native_usd = (bal * price_usd) if price_usd else None
+    native_usd = (bal * price_usd) if (bal is not None and price_usd) else None
     report["balances"] = {
         "native": {"symbol": "TRX", "amount": bal, "price_usd": price_usd,
                    "value_usd": native_usd},
@@ -843,7 +863,7 @@ async def _analyze_tron(address: str, target: detect.Target) -> dict:
     }
     report["risk"] = _score_risk(goplus_flags=[], ofac={"listed": False}, is_contract=bool(account.get("is_contract")), is_new=(len(txs) < 3))
     report["providers"] = ["TronGrid", "CoinGecko"]
-    report["errors"] = []
+    report["errors"] = errors
     report["summary"] = _summary(report)
     return report
 
@@ -860,7 +880,12 @@ async def _analyze_solana(address: str, target: detect.Target) -> dict:
     )
     native_price = await _safe(prices.native_prices(["SOL"]), default={})
     price_usd = (native_price.get("SOL") or {}).get("usd")
-    bal = account.get("balance_native") or 0.0
+    bal = _known_balance(account)
+    sol_errors: list[str] = [account["error"]] if account.get("error") else []
+    if bal is None and not sol_errors:
+        sol_errors.append(
+            "Balance could not be read from the Solana RPC. Holdings are unknown for this run, not zero."
+        )
 
     price_map = await _safe(prices.token_price_solana([t["mint"] for t in tokens if t.get("mint")]), default={})
     priced_tokens = []
@@ -874,7 +899,7 @@ async def _analyze_solana(address: str, target: detect.Target) -> dict:
         priced_tokens.append({**t, "price_usd": price.get("usd"), "change_24h": price.get("change_24h"), "value_usd": usd})
     priced_tokens.sort(key=lambda t: t.get("value_usd") or 0, reverse=True)
 
-    native_usd = (bal * price_usd) if price_usd else None
+    native_usd = (bal * price_usd) if (bal is not None and price_usd) else None
     report["balances"] = {
         "native": {"symbol": "SOL", "amount": bal, "price_usd": price_usd, "value_usd": native_usd},
         "tokens": priced_tokens,
@@ -917,7 +942,7 @@ async def _analyze_solana(address: str, target: detect.Target) -> dict:
     report["identity"] = {"chain": "SOL", "address": address, "type": "account"}
     report["risk"] = _score_risk(goplus_flags=[], ofac={"listed": False}, is_contract=bool(account.get("is_executable")), is_new=(len(sigs) < 3))
     report["providers"] = ["Solana JSON-RPC", "CoinGecko"]
-    report["errors"] = [account["error"]] if account.get("error") else []
+    report["errors"] = sol_errors
     report["summary"] = _summary(report)
     return report
 
@@ -935,7 +960,12 @@ async def _analyze_xrp(address: str, target: detect.Target) -> dict:
     )
     native_price = await _safe(prices.native_prices(["XRP"]), default={})
     price_usd = (native_price.get("XRP") or {}).get("usd")
-    bal = account.get("balance_native") or 0.0
+    bal = _known_balance(account)
+    xrp_errors: list[str] = [account["error"]] if account.get("error") else []
+    if bal is None and not xrp_errors:
+        xrp_errors.append(
+            "Balance could not be read from the XRP Ledger. Holdings are unknown for this run, not zero."
+        )
 
     trustlines = [
         {
@@ -949,14 +979,14 @@ async def _analyze_xrp(address: str, target: detect.Target) -> dict:
 
     report["balances"] = {
         "native": {"symbol": "XRP", "amount": bal, "price_usd": price_usd,
-                   "value_usd": (bal * price_usd) if price_usd else None},
+                   "value_usd": (bal * price_usd) if (bal is not None and price_usd) else None},
         "trustlines": trustlines,
         "token_count": len(trustlines),
         "tokens": trustlines,
     }
     report["portfolio"] = {
-        "total_value_usd": (bal * price_usd) if price_usd else None,
-        "native_value_usd": (bal * price_usd) if price_usd else None,
+        "total_value_usd": (bal * price_usd) if (bal is not None and price_usd) else None,
+        "native_value_usd": (bal * price_usd) if (bal is not None and price_usd) else None,
         "token_value_usd": 0,
         "price_source": _price_source(native_price),
     }
@@ -993,7 +1023,7 @@ async def _analyze_xrp(address: str, target: detect.Target) -> dict:
     report["identity"] = {"chain": "XRP", "address": address, "type": "account", "exists": account.get("exists")}
     report["risk"] = _score_risk(goplus_flags=[], ofac=ofac, is_contract=False, is_new=(len(txs) < 3))
     report["providers"] = ["XRPL cluster", "CoinGecko", "OFAC SDN"]
-    report["errors"] = [account["error"]] if account.get("error") else []
+    report["errors"] = xrp_errors
     report["summary"] = _summary(report)
     return report
 
@@ -1203,6 +1233,22 @@ async def _safe(coro, default=None):
         return await coro
     except Exception:
         return default
+
+
+def _known_balance(container: Any, key: str = "balance_native") -> Optional[float]:
+    """Return a balance only when the provider actually reported one.
+
+    A missing key means the provider did not answer, which is materially
+    different from a confirmed zero balance. Returning ``None`` keeps the
+    report honest: a failed lookup must never be rendered as "0", because that
+    reads as a verified empty wallet.
+    """
+    if not isinstance(container, dict):
+        return None
+    value = container.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
 
 
 # --------------------------------------------------------------------------- #

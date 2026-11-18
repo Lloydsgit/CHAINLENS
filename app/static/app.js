@@ -94,9 +94,16 @@ function renderPortfolio(r) {
   const p = r.portfolio || {};
   const b = r.balances || {};
   const nat = b.native || {};
+  const unknown = nat.amount === null || nat.amount === undefined;
   const rows = [
     metric("Total value", money(p.total_value_usd), "across all assets"),
-    metric("Native balance", `${num(nat.amount)} ${esc(nat.symbol || "")}`, nat.price_usd ? `${money(nat.price_usd)} / ${esc(nat.symbol)}` : ""),
+    metric(
+      "Native balance",
+      unknown ? "unknown" : `${num(nat.amount)} ${esc(nat.symbol || "")}`,
+      unknown
+        ? "provider did not answer — not zero"
+        : nat.price_usd ? `${money(nat.price_usd)} / ${esc(nat.symbol)}` : ""
+    ),
     metric("Native value", money(nat.value_usd), ""),
     metric("Tokens", num(b.token_count ?? 0, 0), b.tokens_shown && b.tokens_shown < b.token_count ? `top ${b.tokens_shown} shown` : "distinct assets"),
   ];

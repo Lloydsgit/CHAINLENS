@@ -117,8 +117,11 @@ def _cache_read(key: str) -> Any:
 
 
 def _cache_write(key: str, value: Any, ttl: int) -> None:
-    os.makedirs(config.CACHE_DIR, exist_ok=True)
+    # The cache is best-effort: on a read-only filesystem (serverless hosts
+    # such as Vercel mount the bundle read-only) this must be a silent no-op,
+    # never an exception that aborts the provider request.
     try:
+        os.makedirs(config.CACHE_DIR, exist_ok=True)
         with open(_cache_path(key), "w", encoding="utf-8") as fh:
             json.dump({"t": time.time(), "ttl": ttl, "v": value}, fh)
     except Exception:

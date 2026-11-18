@@ -6,6 +6,8 @@ higher-throughput providers or private RPC nodes without editing code.
 from __future__ import annotations
 
 import os
+import tempfile
+from typing import Optional
 
 # --- Server -----------------------------------------------------------------
 HOST = os.getenv("OSINT_HOST", "0.0.0.0")
@@ -51,7 +53,44 @@ EXPLORERS = {
 }
 
 # --- Cache ------------------------------------------------------------------
-CACHE_DIR = os.getenv("OSINT_CACHE_DIR", os.path.join(os.path.dirname(__file__), "..", "data", "cache"))
+# The cache is a pure optimization: it is written to disk when a writable
+# location exists and skipped entirely when it does not (for example on a
+# read-only serverless filesystem such as Vercel's /var/task). A cache failure
+# must never stop a provider request.
+def _writable_dir(candidate: str) -> Optional[str]:
+    """Return ``candidate`` if it is (or can be made) writable, else None."""
+    try:
+        os.makedirs(candidate, exist_ok=True)
+        probe = os.path.join(candidate, ".write-test")
+        with open(probe, "w", encoding="utf-8") as fh:
+            fh.write("")
+        os.remove(probe)
+        return candidate
+    except Exception:
+        return None
+
+
+def _resolve_cache_dir() -> str:
+    """Pick a cache directory that is actually writable.
+
+    Order: the configured/env dir, then the system temp dir, then a subdir of
+    the temp dir. Falls back to the configured value (unwritable) only as a
+    last resort, in which case cache reads/writes degrade to no-ops.
+    """
+    configured = os.getenv(
+        "OSINT_CACHE_DIR", os.path.join(os.path.dirname(__file__), "..", "data", "cache")
+    )
+    for candidate in (
+        configured,
+        os.path.join(tempfile.gettempdir(), "chainlens-cache"),
+    ):
+        resolved = _writable_dir(candidate)
+        if resolved:
+            return resolved
+    return configured
+
+
+CACHE_DIR = _resolve_cache_dir()
 CACHE_TTL = int(os.getenv("OSINT_CACHE_TTL", "300"))  # seconds
 
 # --- Sanctions --------------------------------------------------------------

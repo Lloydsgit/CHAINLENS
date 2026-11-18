@@ -34,10 +34,20 @@ def _load_local(chain: str) -> Optional[set]:
 
 
 def _store_local(chain: str, text: str) -> set:
-    os.makedirs(os.path.dirname(_local_path(chain)), exist_ok=True)
-    with open(_local_path(chain), "w", encoding="utf-8") as fh:
-        fh.write(text)
-    return {line.strip() for line in text.splitlines() if line.strip() and not line.startswith("#")}
+    """Parse a sanctions list, caching it to disk when that is possible.
+
+    The disk cache is an optimization only. On a read-only filesystem the
+    parsed list is still returned so screening works; it simply is not
+    persisted for the next run.
+    """
+    entries = {line.strip() for line in text.splitlines() if line.strip() and not line.startswith("#")}
+    try:
+        os.makedirs(os.path.dirname(_local_path(chain)), exist_ok=True)
+        with open(_local_path(chain), "w", encoding="utf-8") as fh:
+            fh.write(text)
+    except Exception:
+        pass
+    return entries
 
 
 async def _get_list(chain: str) -> set:
