@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ChainLens · Crypto & Network OSINT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="/static/styles.css?v=2" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%8E%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="grid-overlay"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+          <path d="M11 8v6M8 11h6"></path>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>ChainLens</h1>
+        <span>Crypto &amp; Network OSINT</span>
+      </div>
+    </div>
+    <div class="topbar-meta">
+      <span class="pill live"><i></i> live providers</span>
+      <span class="pill" id="clock">—</span>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <h2>Attach a wallet, address, or host.</h2>
+      <p>One target in. Every angle out — balances, tokens, NFTs, activity, counterparties, identity, exposure, IP geolocation with a pinpoint map, local time, DNS and domain registration, anonymity indicators, and sanctions screening.</p>
+
+      <form id="search-form" class="searchbar" autocomplete="off">
+        <div class="search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        </div>
+        <input id="query" name="query" type="text" spellcheck="false"
+               placeholder="0x… / bc1… / T… / vitalik.eth / 8.8.8.8 / example.com" />
+        <button type="submit" id="go">
+          <span class="label">Analyze</span>
+          <span class="spinner" hidden></span>
+        </button>
+      </form>
+
+      <div class="samples">
+        <span>Try:</span>
+        <button class="chip" data-q="vitalik.eth">vitalik.eth</button>
+        <button class="chip" data-q="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045">Vitalik's address</button>
+        <button class="chip" data-q="bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97">BTC whale</button>
+        <button class="chip" data-q="TAUN6FwrnwwmaEqYcckffC7wYmbaS6cBiX">Binance TRON</button>
+        <button class="chip" data-q="8.8.8.8">8.8.8.8</button>
+        <button class="chip" data-q="cloudflare.com">cloudflare.com</button>
+      </div>
+    </section>
+
+    <section id="status" class="status" hidden></section>
+    <section id="results" class="results" hidden></section>
+  </main>
+
+  <footer class="footer">
+    <span>ChainLens aggregates public providers: Ethereum JSON-RPC · Ethplorer · Blockscout · Blockstream Esplora · litecoinspace · Dogechain · TronGrid · Solana RPC · XRPL · CoinGecko · Coinbase · Kraken · ensdata.net · GoPlus Labs · ipwho.is · ip-api · ipinfo.io · ipapi.is · Cloudflare DNS · RDAP · crt.sh · Tor Project · OFAC SDN.</span>
+    <span class="muted">Public-data OSINT. Verify independently before acting on any result.</span>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>
